@@ -1,5 +1,4 @@
 (require :asdf)
-(require :sb-grovel)
 (require :v4l2)
 
 (defpackage :run
