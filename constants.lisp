@@ -1,14 +1,21 @@
 ("linux/videodev2.h")
 
 
-#.`((:integer ioc-s-fmt "VIDIOC_S_FMT")
-    (:integer ioc-dqbuf "VIDIOC_DQBUF")
-    (:integer ioc-qbuf "VIDIOC_QBUF")
-    (:integer ioc-streamoff "VIDIOC_STREAMOFF")
-    (:integer ioc-streamon "VIDIOC_STREAMON")
-    (:integer ioc-reqbufs "VIDIOC_REQBUFS")
-    (:integer ioc-querybuf "VIDIOC_QUERYBUF")
-    ,@(loop for i in '("RGB32" "BGR32" "RGB24" "BGR24"
+#.`(,@(loop for i in '((query-capability querycap)
+		       (set-format s_fmt)
+		       (get-format g_fmt)
+		       qbuf
+		       dqbuf streamon streamoff
+		       reqbufs querybuf)
+	 collect
+	   `(:integer 
+	     ,(intern (format nil "IO-~a" (if (consp i)
+					    (first i)
+					    i)))
+	     ,(format nil "VIDIOC_~a" (if (consp i)
+					  (second i)
+					  i)))) 
+      ,@(loop for i in '("RGB32" "BGR32" "RGB24" "BGR24"
 		       "GREY" "YUYV" "UYVY" "YUV422P")
 	 collect
 	   `(:integer ,(intern i) 
