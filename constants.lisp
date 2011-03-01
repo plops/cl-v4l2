@@ -35,6 +35,10 @@
 					  i)))) 
       ,@(constants-combine "V4L2_PIX_FMT_"  '(RGB32 BGR32 RGB24 BGR24
 					      GREY YUYV UYVY YUV422P))
+      ,@(constants-combine "V4L2_CAP_"  '(video-capture video-output video-overlay vbi-capture
+					  vbi-output sliced-vbi-capture sliced-vbi-output rds-capture
+					  video-output-overlay hw-freq-seek rds-output tuner audio
+					  radio modulator readwrite asyncio streaming))
       (:type u32 "__u32")
       (:type u8 "__u8")
       (:enum buf-type ((video-capture "V4L2_BUF_TYPE_VIDEO_CAPTURE")
