@@ -29,6 +29,28 @@
 (defparameter *card* (v4l2::capability-card *cap*))
 #+nil
 (remove-if-not #'second (parse-capabilities (v4l2::capability-capabilities *cap*)))
-(= v4l2::video-capture (logand v4l2::video-capture (v4l2::capability-capabilities *cap*)))
+
+(defun is-streaming-p (fd)
+  (let ((cap (v4l2::allocate-capability)))
+    (sb-posix:ioctl fd v4l2::io-query-capability cap)
+    (prog1 (= v4l2::streaming 
+	      (logand (v4l2::capability-capabilities cap)
+		      v4l2::streaming))
+      (v4l2::free-capability cap))))
+
+#+nil
+(is-streaming-p *fd*)
+
 #+nil
 (sb-posix:close *fd*)
+
+(defparameter *a*
+ (let ((rb (v4l2::allocate-request-buffers)))
+   (setf (v4l2::request-buffers-type rb) 'v4l2::video-capture
+	 (v4l2::request-buffers-memory rb) 'v4l2::memory-mmap
+	 (v4l2::request-buffers-count rb) 4)
+   (when (= -1 (sb-posix:ioctl *fd* v4l2::io-reqbufs rb))
+     (error "video capture or mmap streaming not supported."))
+   rb))
+
+(v4l2::request-buffers-count *a*)
