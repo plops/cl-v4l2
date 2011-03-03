@@ -51,6 +51,9 @@
 				   (buf-type type "enum v4l2_buf_type" "type")
 				   (memory memory "enum v4l2_memory" "memory")))
       (:structure buffer ("struct v4l2_buffer"
+			  (buf-type type "enum v4l2_buf_type" "type")
+			  (memory memory "enum v4l2_memory" "memory")
+			  (u32 offset "__u32" "m.offset")
 			  ,@(u32 '(index bytesused flags sequence length))))
       (:structure pix-format 
 		  ("struct v4l2_pix_format"

@@ -44,6 +44,7 @@
 #+nil
 (sb-posix:close *fd*)
 
+#+nil
 (defparameter *a*
  (let ((rb (v4l2::allocate-request-buffers)))
    (setf (v4l2::request-buffers-type rb) 'v4l2::video-capture
@@ -51,6 +52,27 @@
 	 (v4l2::request-buffers-count rb) 4)
    (when (= -1 (sb-posix:ioctl *fd* v4l2::io-reqbufs rb))
      (error "video capture or mmap streaming not supported."))
+   (assert (< 3 (v4l2::request-buffers-count rb)))
    rb))
+#+nil
+(defparameter *b*
+ (let ((b (v4l2::allocate-buffer)))
+   (setf (v4l2::buffer-type b) 'v4l2::video-capture
+	 (v4l2::buffer-memory b) 'v4l2::memory-mmap
+	 (v4l2::buffer-index b) 0)
+   (assert (/= -1 (sb-posix:ioctl *fd* v4l2::io-querybuf b)))
+   b))
 
-(v4l2::request-buffers-count *a*)
+#+nil
+(/ (v4l2::buffer-length *b*) 512)
+#+nil
+(v4l2::buffer-offset *b*)
+
+#+nil
+(sb-posix:mmap (sb-sys:int-sap 0)
+	       (v4l2::buffer-length *b*) 
+	       (logior sb-posix:prot-read
+		       sb-posix:prot-write)
+	       sb-posix:map-shared
+	       *fd*
+	       (v4l2::buffer-offset *b*))
