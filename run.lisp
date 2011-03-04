@@ -30,7 +30,7 @@
 #+nil
 (remove-if-not #'second (parse-capabilities (v4l2::capability-capabilities *cap*)))
 
-(defun is-streaming-p (fd)
+(defun supports-streaming-p (fd)
   (let ((cap (v4l2::allocate-capability)))
     (sb-posix:ioctl fd v4l2::io-query-capability cap)
     (prog1 (= v4l2::streaming 
@@ -39,29 +39,66 @@
       (v4l2::free-capability cap))))
 
 #+nil
-(is-streaming-p *fd*)
+(supports-streaming-p *fd*)
 
 #+nil
 (sb-posix:close *fd*)
 
-#+nil
-(defparameter *a*
+(defun supports-mmap-p (fd)
  (let ((rb (v4l2::allocate-request-buffers)))
    (setf (v4l2::request-buffers-type rb) 'v4l2::video-capture
-	 (v4l2::request-buffers-memory rb) 'v4l2::memory-mmap
-	 (v4l2::request-buffers-count rb) 4)
-   (when (= -1 (sb-posix:ioctl *fd* v4l2::io-reqbufs rb))
-     (error "video capture or mmap streaming not supported."))
-   (assert (< 3 (v4l2::request-buffers-count rb)))
-   rb))
+	 (v4l2::request-buffers-memory rb) 'v4l2::memory-mmap)
+   (/= -1 (sb-posix:ioctl fd v4l2::io-reqbufs rb))))
+
+(defun supports-user-pointerp (fd)
+ (let ((rb (v4l2::allocate-request-buffers)))
+   (setf (v4l2::request-buffers-type rb) 'v4l2::video-capture
+	 (v4l2::request-buffers-memory rb) 'v4l2::memory-user-pointer)
+   (/= -1 (sb-posix:ioctl fd v4l2::io-reqbufs rb))))
+
 #+nil
-(defparameter *b*
- (let ((b (v4l2::allocate-buffer)))
-   (setf (v4l2::buffer-type b) 'v4l2::video-capture
-	 (v4l2::buffer-memory b) 'v4l2::memory-mmap
-	 (v4l2::buffer-index b) 0)
-   (assert (/= -1 (sb-posix:ioctl *fd* v4l2::io-querybuf b)))
-   b))
+(supports-user-pointer-p *fd*)
+#+nil
+(supports-mmap-p *fd*)
+
+(defun init-mmap (fd &optional (count 4))
+  "Allocate buffers for image storage with MMAP."
+  (let ((res ())
+	(rb (v4l2::allocate-request-buffers)))
+    (setf (v4l2::request-buffers-type rb) 'v4l2::video-capture
+	  (v4l2::request-buffers-memory rb) 'v4l2::memory-mmap
+	  (v4l2::request-buffers-count rb) count)
+    (when (= -1 (sb-posix:ioctl fd v4l2::io-reqbufs rb))
+      (error "video capture or mmap streaming not supported."))
+    (assert (<= count (v4l2::request-buffers-count rb)))
+    (dotimes (i (v4l2::request-buffers-count rb))
+      (let ((b (v4l2::allocate-buffer)))
+	(setf (v4l2::buffer-type b) 'v4l2::video-capture
+	      (v4l2::buffer-memory b) 'v4l2::memory-mmap
+	      (v4l2::buffer-index b) i)
+	(assert (/= -1 (sb-posix:ioctl fd v4l2::io-querybuf b)))
+	(let ((len (v4l2::buffer-length b)))
+	  (push (list (sb-posix:mmap (sb-sys:int-sap 0)
+				     len
+				     (logior sb-posix:prot-read
+					     sb-posix:prot-write)
+				     sb-posix:map-shared
+				     fd
+				     (v4l2::buffer-offset b))
+		      len)
+		res))))
+    (reverse res)))
+
+
+(defun uninit-mmap (bufs)
+  (loop for (start len) in bufs do
+       (sb-posix:munmap start len)))
+
+#+nil
+(defparameter *bufs* (init-mmap *fd*))
+
+#+nil
+(uninit-mmap *bufs*)
 
 #+nil
 (/ (v4l2::buffer-length *b*) 512)
