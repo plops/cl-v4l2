@@ -102,6 +102,17 @@
   (loop for (start len index is-queued) in bufs do
        (sb-posix:munmap start len)))
 
+(defun set-format (fd)
+  (let* ((f (v4l2::allocate-format))
+	 (p (sb-alien:slot f 'v4l2::pix)))
+    (setf (v4l2::format-type f) 'v4l2::video-capture
+	  (sb-alien:slot p 'v4l2::width) 640
+	  (sb-alien:slot p 'v4l2::height) 480
+	  (sb-alien:slot p 'v4l2::pixelformat) v4l2::yuyv)
+    (sb-posix:ioctl fd v4l2::io-set-format f)
+    (v4l2::free-format f)))
+#+nil
+(set-format *fd*)
 
 (defvar *bufs* nil)
 #+nil
@@ -110,17 +121,6 @@
 #+nil
 (uninit-mmap *bufs*)
 
-(defun set-format (fd)
-  (let* ((f (v4l2::allocate-format))
-	 (p (sb-alien:slot f 'v4l2::pix)))
-    (setf (v4l2::format-type f) 'v4l2::video-capture
-	  (sb-alien:slot p 'v4l2::width) 640
-	  (sb-alien:slot p 'v4l2::height) 480
-	  (sb-alien:slot p 'v4l2::pixelformat) v4l2::rgb24)
-    (sb-posix:ioctl fd v4l2::io-set-format f)
-    (v4l2::free-format f)))
-#+nil
-(set-format *fd*)
 
 (defun enqueue (fd buf)
   (destructuring-bind (start len index is-queued) buf
@@ -147,9 +147,10 @@
 (defun start-capturing (fd bufs)
   (dolist (e bufs) 
     (enqueue fd e))
-  (assert (/= -1 (sb-posix:ioctl fd 
-				 v4l2::io-streamon
-				 v4l2::video-capture))))
+  (sb-alien:with-alien ((v sb-alien:integer :local v4l2::video-capture))
+    (assert (/= -1 (sb-posix:ioctl fd 
+				   v4l2::io-streamon
+				   (sb-alien:addr v))))))
 
 #+nil
 (dolist (e *bufs*) 
@@ -168,7 +169,7 @@
   (sb-alien:with-alien ((v sb-alien:integer :local v4l2::video-capture))
     (assert (/= -1 (sb-posix:ioctl fd 
 				   v4l2::io-streamoff
-				   v)))))
+				   (sb-alien:addr v))))))
 
 #+nil
 (stop-capturing *fd*)
