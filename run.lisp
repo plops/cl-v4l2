@@ -20,7 +20,7 @@
 		  `(list ',e (= ,e (logand ,cap ,e)))))))
 
 #+nil
-(defparameter *fd* (sb-posix:open "/dev/video0" sb-posix:o-rdwr))
+(defvar *fd* (sb-posix:open "/dev/video0" sb-posix:o-rdwr))
 #+nil
 (defparameter *cap* (v4l2::allocate-capability))
 #+nil
@@ -48,13 +48,17 @@
  (let ((rb (v4l2::allocate-request-buffers)))
    (setf (v4l2::request-buffers-type rb) 'v4l2::video-capture
 	 (v4l2::request-buffers-memory rb) 'v4l2::memory-mmap)
-   (/= -1 (sb-posix:ioctl fd v4l2::io-reqbufs rb))))
+   (prog1
+       (/= -1 (sb-posix:ioctl fd v4l2::io-reqbufs rb))
+     (v4l2::free-request-buffers rb))))
 
-(defun supports-user-pointerp (fd)
+(defun supports-user-pointer-p (fd)
  (let ((rb (v4l2::allocate-request-buffers)))
    (setf (v4l2::request-buffers-type rb) 'v4l2::video-capture
 	 (v4l2::request-buffers-memory rb) 'v4l2::memory-user-pointer)
-   (/= -1 (sb-posix:ioctl fd v4l2::io-reqbufs rb))))
+   (prog1
+       (/= -1 (sb-posix:ioctl fd v4l2::io-reqbufs rb))
+     (v4l2::free-request-buffers rb))))
 
 #+nil
 (supports-user-pointer-p *fd*)
@@ -85,31 +89,100 @@
 				     sb-posix:map-shared
 				     fd
 				     (v4l2::buffer-offset b))
-		      len)
-		res))))
+		      len
+		      i
+		      nil)
+		res))
+	(v4l2::free-buffer b)))
+    (v4l2::free-request-buffers rb)
     (reverse res)))
 
 
 (defun uninit-mmap (bufs)
-  (loop for (start len) in bufs do
+  (loop for (start len index is-queued) in bufs do
        (sb-posix:munmap start len)))
 
+
+(defvar *bufs* nil)
 #+nil
-(defparameter *bufs* (init-mmap *fd*))
+(setf *bufs* (init-mmap *fd*))
 
 #+nil
 (uninit-mmap *bufs*)
 
+(defun set-format (fd)
+  (let* ((f (v4l2::allocate-format))
+	 (p (sb-alien:slot f 'v4l2::pix)))
+    (setf (v4l2::format-type f) 'v4l2::video-capture
+	  (sb-alien:slot p 'v4l2::width) 640
+	  (sb-alien:slot p 'v4l2::height) 480
+	  (sb-alien:slot p 'v4l2::pixelformat) v4l2::rgb24)
+    (sb-posix:ioctl fd v4l2::io-set-format f)
+    (v4l2::free-format f)))
 #+nil
-(/ (v4l2::buffer-length *b*) 512)
-#+nil
-(v4l2::buffer-offset *b*)
+(set-format *fd*)
+
+(defun enqueue (fd buf)
+  (destructuring-bind (start len index is-queued) buf
+    (declare (ignore start len))
+    (unless is-queued
+     (let ((b (v4l2::allocate-buffer)))
+       (setf (v4l2::buffer-type b) 'v4l2::video-capture
+	     (v4l2::buffer-memory b) 'v4l2::memory-mmap
+	     (v4l2::buffer-index b) index)
+       (when (= -1 (sb-posix:ioctl fd v4l2::io-qbuf b))
+	 (break "qbuf error maybe buffer has been queued already?"))
+       (setf (fourth buf) t)
+       (v4l2::free-buffer b)))))
+
+(defun exchange-queue (fd process-img)
+  (let ((b (v4l2::allocate-buffer)))
+    (setf (v4l2::buffer-type b) 'v4l2::video-capture
+	  (v4l2::buffer-memory b) 'v4l2::memory-mmap)
+    (sb-posix:ioctl fd v4l2::io-dqbuf b)
+    (funcall process-img (v4l2::buffer-index b))
+    (sb-posix:ioctl fd v4l2::io-qbuf b)
+    (v4l2::free-buffer b)))
+
+(defun start-capturing (fd bufs)
+  (dolist (e bufs) 
+    (enqueue fd e))
+  (assert (/= -1 (sb-posix:ioctl fd 
+				 v4l2::io-streamon
+				 v4l2::video-capture))))
 
 #+nil
-(sb-posix:mmap (sb-sys:int-sap 0)
-	       (v4l2::buffer-length *b*) 
-	       (logior sb-posix:prot-read
-		       sb-posix:prot-write)
-	       sb-posix:map-shared
-	       *fd*
-	       (v4l2::buffer-offset *b*))
+(dolist (e *bufs*) 
+  (enqueue *fd* e))
+
+#+nil
+(let ((a v4l2::video-capture))
+ (sb-posix:ioctl *fd* 
+		 v4l2::io-streamon
+		 a))
+
+#+nil
+(start-capturing *fd* *bufs*)
+
+(defun stop-capturing (fd)
+  (sb-alien:with-alien ((v sb-alien:integer :local v4l2::video-capture))
+    (assert (/= -1 (sb-posix:ioctl fd 
+				   v4l2::io-streamoff
+				   v)))))
+
+#+nil
+(stop-capturing *fd*)
+
+
+
+(defun start-main-loop (fd)
+  (start-capturing fd *bufs*)
+  (dotimes (i 1000)
+    (exchange-queue fd #'(lambda (index)
+			   (format t "~a~%"
+			    (sb-sys:sap-ref-8 (first (elt *bufs* index))
+					      0)))))
+  (stop-capturing fd))
+
+#+nil
+(start-main-loop *fd*)
