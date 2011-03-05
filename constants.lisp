@@ -95,4 +95,7 @@
 				    ,@(u8 '((array name)))
 				    ,@(u32 '(id flags))
 				    (query-ctrl-type type "enum v4l2_ctrl_type" "type")
-				    ,@(s32 '(minimum maximum step default-value))))))
+				    ,@(s32 '(minimum maximum step default-value))))
+	 (:structure control ("struct v4l2_control"
+			      ,@(u32 '(id))
+			      ,@(s32 '(value))))))

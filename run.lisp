@@ -197,6 +197,36 @@
 #+nil
 (query-controls *fd*)
 
+(defun set-control (id &optional rel-value)
+  (declare (type (or null (single-float 0s0 1s0)) rel-value))
+  (let ((g (v4l2::allocate-query-control))
+	(s (v4l2::allocate-control)))
+    (unwind-protect
+	 (progn
+	   (setf (v4l2::query-control-id g) id)
+	   (sb-posix:ioctl *fd* v4l2::io-query-control g)
+	   (unless (= v4l2::flag-disabled 
+		      (logand v4l2::flag-disabled (v4l2::query-control-flags g)))
+	     (let ((mi (v4l2::query-control-minimum g))
+		   (ma (v4l2::query-control-maximum g)))
+	       (setf (v4l2::control-id s) id
+		     (v4l2::control-value s) (if rel-value
+						 (floor (+ (* ma rel-value)
+							   (* (- 1 rel-value) mi)))
+						 (v4l2::query-control-default-value g)))
+	       (sb-posix:ioctl *fd* v4l2::io-set-control s)))
+	   (progn (v4l2::free-query-control g)
+		  (v4l2::free-control s))))))
+
+#+nil
+(set-control v4l2::gamma 0s0)
+#+nil
+(set-control v4l2::saturation)
+#+nil
+(set-control v4l2::brightness 1s0)
+#+nil
+(set-control v4l2::sharpness 0s0)
+
 (defun start-main-loop ()
   (unwind-protect
        (progn 
