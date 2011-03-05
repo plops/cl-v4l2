@@ -19,16 +19,9 @@
 	   collect
 		  `(list ',e (= ,e (logand ,cap ,e)))))))
 
+(defvar *fd* nil)
 #+nil
 (defvar *fd* (sb-posix:open "/dev/video0" sb-posix:o-rdwr))
-#+nil
-(defparameter *cap* (v4l2::allocate-capability))
-#+nil
-(sb-posix:ioctl *fd* v4l2::io-query-capability *cap*)
-#+nil
-(defparameter *card* (v4l2::capability-card *cap*))
-#+nil
-(remove-if-not #'second (parse-capabilities (v4l2::capability-capabilities *cap*)))
 
 (defun supports-streaming-p (fd)
   (let ((cap (v4l2::allocate-capability)))
@@ -65,7 +58,7 @@
 #+nil
 (supports-mmap-p *fd*)
 
-(defun init-mmap (fd &optional (count 4))
+(defun init-mmap (fd &optional (count 30))
   "Allocate buffers for image storage with MMAP."
   (let ((res ())
 	(rb (v4l2::allocate-request-buffers)))
@@ -97,7 +90,6 @@
     (v4l2::free-request-buffers rb)
     (reverse res)))
 
-
 (defun uninit-mmap (bufs)
   (loop for (start len index is-queued) in bufs do
        (sb-posix:munmap start len)))
@@ -121,7 +113,6 @@
 #+nil
 (uninit-mmap *bufs*)
 
-
 (defun enqueue (fd buf)
   (destructuring-bind (start len index is-queued) buf
     (declare (ignore start len))
@@ -136,6 +127,10 @@
        (v4l2::free-buffer b)))))
 
 (defun exchange-queue (fd process-img)
+  (unless fd
+    (error "file descriptor isn't opened."))
+  (unless *bufs*
+    (error "no mmap buffers available."))
   (let ((b (v4l2::allocate-buffer)))
     (setf (v4l2::buffer-type b) 'v4l2::video-capture
 	  (v4l2::buffer-memory b) 'v4l2::memory-mmap)
@@ -144,46 +139,54 @@
     (sb-posix:ioctl fd v4l2::io-qbuf b)
     (v4l2::free-buffer b)))
 
-(defun start-capturing (fd bufs)
-  (dolist (e bufs) 
-    (enqueue fd e))
+(defun init ()
+  (setf *fd* (sb-posix:open "/dev/video0" sb-posix:o-rdwr))
+  (set-format *fd*)
+  (setf *bufs* (init-mmap *fd*)))
+
+
+(defun uninit ()
+  (uninit-mmap *bufs*)
+  (setf *bufs* nil)
+  (sb-posix:close *fd*)
+  (setf *fd* nil))
+
+(defun start-capturing ()
+  (unless *bufs*
+    (error "You forgot to call init-mmap."))
+  (dolist (e *bufs*) 
+    (enqueue *fd* e))
   (sb-alien:with-alien ((v sb-alien:integer :local v4l2::video-capture))
-    (assert (/= -1 (sb-posix:ioctl fd 
+    (assert (/= -1 (sb-posix:ioctl *fd* 
 				   v4l2::io-streamon
 				   (sb-alien:addr v))))))
 
-#+nil
-(dolist (e *bufs*) 
-  (enqueue *fd* e))
-
-#+nil
-(let ((a v4l2::video-capture))
- (sb-posix:ioctl *fd* 
-		 v4l2::io-streamon
-		 a))
-
-#+nil
-(start-capturing *fd* *bufs*)
-
-(defun stop-capturing (fd)
+(defun stop-capturing ()
   (sb-alien:with-alien ((v sb-alien:integer :local v4l2::video-capture))
-    (assert (/= -1 (sb-posix:ioctl fd 
+    (assert (/= -1 (sb-posix:ioctl *fd* 
 				   v4l2::io-streamoff
 				   (sb-alien:addr v))))))
 
 #+nil
-(stop-capturing *fd*)
+(stop-capturing)
 
 
-
-(defun start-main-loop (fd)
-  (start-capturing fd *bufs*)
-  (dotimes (i 1000)
-    (exchange-queue fd #'(lambda (index)
-			   (format t "~a~%"
-			    (sb-sys:sap-ref-8 (first (elt *bufs* index))
-					      0)))))
-  (stop-capturing fd))
+(defun start-main-loop ()
+  (unwind-protect
+       (progn 
+	 (init)
+	 (start-capturing)
+	 (time
+	  (dotimes (i 100)
+	    (exchange-queue *fd* #'(lambda (index)
+				     (format t "~a~%"
+					     (sb-sys:sap-ref-8 
+					      (first (elt *bufs* index))
+					      0)))))))
+    (stop-capturing)))
 
 #+nil
-(start-main-loop *fd*)
+(start-main-loop)
+
+#+nil
+(uninit)
