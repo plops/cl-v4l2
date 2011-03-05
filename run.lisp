@@ -170,6 +170,32 @@
 #+nil
 (stop-capturing)
 
+(defun query-controls (fd)
+  (let ((c (v4l2::allocate-query-control))
+	(res ()))
+    (unwind-protect
+	 (dolist (e '(brightness  contrast saturation  hue
+		      auto-white-balance ;red-balance blue-balance
+		      gamma
+		      ;exposure 
+		      ; autogain ; gain ; hflip vflip
+		      power-line-frequency ;hue-auto white-balance-temperature
+		      sharpness ;backlight-compensation chroma-agc color-killer
+		      ;autobrightness ;band-stop-filter
+		      ))
+	   (setf (v4l2::query-control-id c) (symbol-value
+					     (intern (symbol-name e) 'v4l2)))
+	   (sb-posix:ioctl fd v4l2::io-query-control c)
+       (unless (= v4l2::flag-disabled 
+		  (logand v4l2::flag-disabled (v4l2::query-control-flags c)))
+	 (push (list e 
+		     (v4l2::query-control-minimum c)
+		     (v4l2::query-control-default-value c)
+		     (v4l2::query-control-maximum c)) res)))
+      (v4l2::free-query-control c))
+    (reverse res)))
+#+nil
+(query-controls *fd*)
 
 (defun start-main-loop ()
   (unwind-protect

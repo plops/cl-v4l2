@@ -35,7 +35,8 @@
 			  qbuf
 			  dqbuf streamon streamoff
 			  reqbufs querybuf
-			  queryctl (get-control g_ctrl) (set-control s_ctrl))
+			  (query-control queryctrl)
+			  (get-control g_ctrl) (set-control s_ctrl))
 	    collect
 	      `(:integer 
 		,(intern (format nil "IO-~a" (if (consp i)
