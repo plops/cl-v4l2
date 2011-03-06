@@ -3,10 +3,7 @@
   (require :v4l2)
   (require :sb-posix))
 
-(defpackage :run
-  (:use :cl :v4l2))
-
-(in-package :run)
+(in-package :video)
 
 (defmacro parse-capabilities (cap)
   (let* ((caps '(video-capture video-output video-overlay vbi-capture
@@ -23,6 +20,19 @@
 #+nil
 (defvar *fd* (sb-posix:open "/dev/video0" sb-posix:o-rdwr))
 
+(defun list-capabilities (fd)
+  (let ((cap (v4l2::allocate-capability)))
+    (unwind-protect
+	 (progn
+	   (sb-posix:ioctl fd v4l2::io-query-capability cap)
+	   (return-from list-capabilities 
+	     (parse-capabilities 
+	      (v4l2::capability-capabilities cap))))
+      (v4l2::free-capability cap))))
+
+#+nil
+(list-capabilities *fd*)
+
 (defun supports-streaming-p (fd)
   (let ((cap (v4l2::allocate-capability)))
     (sb-posix:ioctl fd v4l2::io-query-capability cap)
@@ -36,6 +46,7 @@
 
 #+nil
 (sb-posix:close *fd*)
+
 
 (defun supports-mmap-p (fd)
  (let ((rb (v4l2::allocate-request-buffers)))
@@ -142,7 +153,8 @@
 (defun init ()
   (setf *fd* (sb-posix:open "/dev/video0" sb-posix:o-rdwr))
   (set-format *fd*)
-  (setf *bufs* (init-mmap *fd*)))
+  (setf *bufs* (init-mmap *fd*))
+  (set-controls))
 
 
 (defun uninit ()
@@ -274,8 +286,8 @@
 #+nil
 (set-good-controls)
 
-(defun set-good-controls ()
-  (dolist (e *good-controls*)
+(defun set-controls (&optional (controls *good-controls*))
+  (dolist (e controls)
     (destructuring-bind (sym val) e
       (let ((name (symbol-value
 		   (intern (symbol-name sym) 'v4l2))))
@@ -308,6 +320,5 @@
 
 #+nil
 (start-main-loop)
-
 #+nil
 (uninit)
