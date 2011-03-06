@@ -56,9 +56,6 @@
 	 (:type u8 "__u8")
 	 (:enum buf-type ,(enum-combine "V4L2_BUF_TYPE_"
 					'(video-capture video-output)))
-	 (:enum power-line-frequency 
-		,(enum-combine "V4L2_CID_POWER_LINE_"
-			       '(frequency-disabled frequency-50Hz frequency-60Hz)))
 	 (:enum memory
 		,(enum-combine "V4L2_"
 			       '(memory-mmap (memory-user-pointer memory-userptr) memory-overlay)))
@@ -85,7 +82,33 @@
 					     exposure autogain gain hflip vflip
 					     power-line-frequency hue-auto white-balance-temperature
 					     sharpness backlight-compensation chroma-agc color-killer
-					     autobrightness band-stop-filter))
+					     autobrightness band-stop-filter
+					     camera-class-base camera-class
+					     exposure-auto
+					     exposure-absolute
+					     exposure-auto-priority
+					     pan-relative
+					     tilt-relative
+					     pan-reset
+					     tilt-reset
+					     pan-absolute
+					     tilt-absolute
+					     focus-absolute
+					     focus-relative
+					     focus-auto
+					     zoom-absolute
+					     zoom-relative
+					     zoom-continuous
+					     ))
+	 (:enum power-line-frequency 
+		,(enum-combine "V4L2_CID_POWER_LINE_"
+			       '(frequency-disabled frequency-50Hz
+				 frequency-60Hz)))
+	 (:enum exposure-auto
+		,(enum-combine "V4L2_"
+			       '(exposure-auto exposure-manual
+				 exposure-shutter-priority 
+				 exposure-aperture-priority)))
 	 (:enum query-ctrl-type ,(enum-combine "V4L2_CTRL_TYPE_"
 					       '(integer boolean menu button integer64
 						 ctrl-class string)))
