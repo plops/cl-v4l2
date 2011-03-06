@@ -186,45 +186,53 @@
   (let ((c (v4l2::allocate-query-control))
 	(res ()))
     (unwind-protect
-	 (dolist (e '(;base lastp1 
+	 (dolist (e '(			;base lastp1 
 		      brightness contrast saturation hue
-		      auto-white-balance ; red-balance blue-balance
+		      auto-white-balance
+		      red-balance blue-balance
 		      gamma
-		      ; exposure autogain gain hflip vflip
-		      power-line-frequency ;  hue-auto white-balance-temperature
-		      sharpness backlight-compensation ; chroma-agc color-killer
-		      ;; autobrightness band-stop-filter
-		      ;; camera-class-base camera-class
-		       exposure-auto
-		      ;; exposure-absolute
-		       exposure-auto-priority
-		      ;; pan-relative tilt-relative
-		      ;; pan-reset tilt-reset
-		      ;; pan-absolute tilt-absolute
-		      ;; focus-absolute focus-relative focus-auto
-		      ;; zoom-absolute zoom-relative zoom-continuous
+		      exposure autogain gain hflip vflip
+		      power-line-frequency 
+		      hue-auto
+		      white-balance-temperature
+		      sharpness backlight-compensation 
+		      chroma-agc
+		      color-killer
+		      autobrightness
+		      band-stop-filter
+		      camera-class-base camera-class
+		      exposure-auto
+		      exposure-absolute
+		      exposure-auto-priority
+		      pan-relative tilt-relative
+		      pan-reset tilt-reset
+		      pan-absolute tilt-absolute
+		      focus-absolute focus-relative focus-auto
+		      zoom-absolute zoom-relative zoom-continuous
 		      ))
 	   (setf (v4l2::query-control-id c) (symbol-value
 					     (intern (symbol-name e) 'v4l2)))
-	   (sb-posix:ioctl fd v4l2::io-query-control c)
-       (unless (= v4l2::flag-disabled 
-		  (logand v4l2::flag-disabled (v4l2::query-control-flags c)))
-	 (push (list e
-		     (get-control (symbol-value
-				   (intern (symbol-name e) 'v4l2)))
-		     (list
-		      (v4l2::query-control-minimum c)
-		      (v4l2::query-control-default-value c)
-		      (v4l2::query-control-maximum c))) res)))
+	   (handler-case 
+	       (unless (or (= -1 (sb-posix:ioctl fd v4l2::io-query-control c)) 
+			   (= v4l2::flag-disabled 
+			      (logand v4l2::flag-disabled 
+				      (v4l2::query-control-flags c))))
+		 (push (list e
+			     (get-control (symbol-value
+					   (intern (symbol-name e) 'v4l2)))
+			     (list
+			      (v4l2::query-control-minimum c)
+			      (v4l2::query-control-default-value c)
+			      (v4l2::query-control-maximum c))) res))
+	     (sb-posix:syscall-error nil)))
       (v4l2::free-query-control c))
     (reverse res)))
 #+nil
-(query-controls *fd*)
+(format t "~a~%"
+ (query-controls *fd*))
 
-
-
-(defun set-control (id &key value rel-value)
-  (declare (type (or null (single-float 0s0 1s0)) rel-value))
+(defun set-control (id &key value relative)
+  (declare (type (or null (single-float 0s0 1s0)) relative))
   (let ((g (v4l2::allocate-query-control))
 	(s (v4l2::allocate-control)))
     (unwind-protect
@@ -234,32 +242,56 @@
 	   (unless (= v4l2::flag-disabled 
 		      (logand v4l2::flag-disabled (v4l2::query-control-flags g)))
 	     (let ((mi (v4l2::query-control-minimum g))
-		   (ma (v4l2::query-control-maximum g)))
+		   (ma (v4l2::query-control-maximum g))
+		   (default (v4l2::query-control-default-value g)))
 	       (setf (v4l2::control-id s) id
-		     (v4l2::control-value s) (if rel-value
-						 (floor (+ (* ma rel-value)
-							   (* (- 1 rel-value) mi)))
-						 (v4l2::query-control-default-value g)))
-	       (sb-posix:ioctl *fd* v4l2::io-set-control s))))
+		     (v4l2::control-value s) 
+		     (if value
+			 (min ma (max mi value))
+			 (if relative
+			     (floor (+ (* ma relative)
+				       (* (- 1 relative) mi)))
+			     default)))
+	       (sb-posix:ioctl *fd* v4l2::io-set-control s)
+	       (return-from set-control (values
+					 (v4l2::control-value s)
+					 mi default ma)))))
       (progn (v4l2::free-query-control g)
 	     (v4l2::free-control s)))))
 
+(defvar *good-controls* 
+  '((gamma max)
+    (saturation min)
+    (contrast max)
+    (brightness max)
+    (auto-white-balance 0)
+    (power-line-frequency 0)
+    (white-balance-temperature min)
+    (sharpness 0)
+    (backlight-compensation 0)
+    (exposure-auto 1)
+    (exposure-auto-priority 0)))
 #+nil
-(set-control v4l2::gamma 0s0)
-#+nil
-(set-control v4l2::saturation 0s0)
-#+nil
-(set-control v4l2::contrast 1s0)
-#+nil
-(set-control v4l2::brightness 1s0)
-#+nil
-(set-control v4l2::sharpness 0s0)
-#+nil
-(set-control v4l2::power-line-frequency 0s0)
-#+nil
-(set-control v4l2::exposure-auto-priority 0s0)
-#+nil
-(set-control v4l2::exposure-auto 1s0)
+(set-good-controls)
+
+(defun set-good-controls ()
+  (dolist (e *good-controls*)
+    (destructuring-bind (sym val) e
+      (let ((name (symbol-value
+		   (intern (symbol-name sym) 'v4l2))))
+	(etypecase val
+	  (integer
+	   (set-control name :value val))
+	  (real
+	   (set-control name :relative val))
+	  (symbol
+	   (set-control name :relative (ecase val
+					 (max 1s0)
+					 (min 0s0)))))))))
+
+#+NIL
+(set-control v4l2::exposure-absolute :relative .2s0) ;; doesn't work
+
 (defun start-main-loop ()
   (unwind-protect
        (progn 
