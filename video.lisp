@@ -105,17 +105,23 @@
   (loop for (start len index is-queued) in bufs do
        (sb-posix:munmap start len)))
 
-(defun set-format (fd)
+(defun set-format (fd &key (width 640) (height 480))
   (let* ((f (v4l2::allocate-format))
 	 (p (sb-alien:slot f 'v4l2::pix)))
-    (setf (v4l2::format-type f) 'v4l2::video-capture
-	  (sb-alien:slot p 'v4l2::width) 640
-	  (sb-alien:slot p 'v4l2::height) 480
-	  (sb-alien:slot p 'v4l2::pixelformat) v4l2::yuyv)
-    (sb-posix:ioctl fd v4l2::io-set-format f)
-    (v4l2::free-format f)))
+    (unwind-protect
+	 (progn (setf (v4l2::format-type f) 'v4l2::video-capture
+		      (sb-alien:slot p 'v4l2::width) width
+		      (sb-alien:slot p 'v4l2::height) height
+		      (sb-alien:slot p 'v4l2::pixelformat) v4l2::yuyv)
+		;; make a format suggestion to the driver
+		(sb-posix:ioctl fd v4l2::io-set-format f)
+		(let ((p (sb-alien:slot f 'v4l2::pix)))
+		  ;; return values that the driver has chosen
+		  `((width ,(sb-alien:slot p 'v4l2::width))
+		    (height ,(sb-alien:slot p 'v4l2::height)))))
+      (v4l2::free-format f))))
 #+nil
-(set-format *fd*)
+(set-format *fd* :width 1600 :height 1200)
 
 (defvar *bufs* nil)
 #+nil
@@ -313,7 +319,7 @@
 	  (dotimes (i 100)
 	    (exchange-queue *fd* #'(lambda (index)
 				     (format t "~a~%"
-					     (sb-sys:sap-ref-8 
+					    r  (sb-sys:sap-ref-8 
 					      (first (elt *bufs* index))
 					      0)))))))
     (stop-capturing)))
@@ -322,3 +328,59 @@
 (start-main-loop)
 #+nil
 (uninit)
+
+
+(defun parse-rect (r)
+  (list (sb-alien:slot r 'v4l2::left)
+	(sb-alien:slot r 'v4l2::top)
+	(sb-alien:slot r 'v4l2::width)
+	(sb-alien:slot r 'v4l2::height)))
+
+(defmacro with-rect ((name rect-list) &body body)
+  `(let ((,name (v4l2::allocate-rect)))
+     (unwind-protect
+	  (destructuring-bind (x y w h) ,rect-list  
+	    (setf (sb-alien:slot ,name 'v4l2::left) x
+		  (sb-alien:slot ,name 'v4l2::top) y
+		  (sb-alien:slot ,name 'v4l2::width) w
+		  (sb-alien:slot ,name 'v4l2::height) h)
+	   ,@body)
+       (v4l2::free-rect ,name))))
+
+(defun set-rect (r x y w h)
+  (setf (sb-alien:slot r 'v4l2::left) x
+	(sb-alien:slot r 'v4l2::top) y
+	(sb-alien:slot r 'v4l2::width) w
+	(sb-alien:slot r 'v4l2::height) h))
+
+
+(defun parse-fract (f)
+  (list (sb-alien:slot f 'v4l2::denominator)
+	(sb-alien:slot f 'v4l2::numerator)))
+
+(defun list-cropcap (fd)
+ (let ((c (v4l2::allocate-cropcap)))
+   (unwind-protect
+	(progn
+	  (setf (v4l2::cropcap-type c) 'v4l2::video-capture)
+	  (sb-posix:ioctl fd v4l2::io-cropcap c)
+	  `((defrect ,(parse-rect (v4l2::cropcap-defrect c)))
+	    (bounds ,(parse-rect (v4l2::cropcap-bounds c)))
+	    (pixelaspect ,(parse-fract (v4l2::cropcap-pixelaspect c)))))
+     (v4l2::free-cropcap c))))
+#+nil
+(first (cdr (assoc 'bounds
+	     (list-cropcap *fd*))))
+
+(defun set-crop (fd &optional (rect (first (cdr (assoc 'bounds
+						       (list-cropcap *fd*))))))
+ (let ((c (v4l2::allocate-crop)))
+   (unwind-protect
+	(destructuring-bind (x y w h) rect
+	  (set-rect (v4l2::crop-c c) x y w h)
+	  (setf (v4l2::crop-type c) 'v4l2::video-capture)
+	  (sb-posix:ioctl fd v4l2::io-set-crop c)
+	  `(c ,(parse-rect (v4l2::crop-c c))))
+     (v4l2::free-cropcap c))))
+#+nil
+(set-crop *fd* '(200 200 300 300))
