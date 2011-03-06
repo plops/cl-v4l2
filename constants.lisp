@@ -36,7 +36,8 @@
 			  dqbuf streamon streamoff
 			  reqbufs querybuf
 			  (query-control queryctrl)
-			  (get-control g_ctrl) (set-control s_ctrl))
+			  (get-control g_ctrl) (set-control s_ctrl)
+			  cropcap (get-crop g_crop) (set-crop s_crop))
 	    collect
 	      `(:integer 
 		,(intern (format nil "IO-~a" (if (consp i)
@@ -121,4 +122,16 @@
 				    ,@(s32 '(minimum maximum step default-value))))
 	 (:structure control ("struct v4l2_control"
 			      ,@(u32 '(id))
-			      ,@(s32 '(value))))))
+			      ,@(s32 '(value))))
+	 (:structure rect ("struct v4l2_rect"
+			   ,@(s32 '(left top width height))))
+	 (:structure fract ("struct v4l2_fract"
+			    ,@(u32 '(numerator denominator))))
+	 (:structure cropcap ("struct v4l2_cropcap"
+			      (buf-type type "enum v4l2_buf_type" "type")
+			      (rect bounds "enum v4l2_rect" "bounds")
+			      (rect defrect "enum v4l2_rect" "defrect")
+			      (fract pixelaspect "enum v4l2_fract" "pixelaspect")))
+	 (:structure crop ("struct v4l2_crop"
+			   (buf-type type "enum v4l2_buf_type" "type")
+			   (rect c "enum v4l2_rect" "c")))))
