@@ -1,9 +1,19 @@
 (eval-when (:compile-toplevel :load-toplevel :execute) 
   (require :asdf)
   (require :v4l2)
-  (require :sb-posix))
+  (require :sb-posix)
+  (require :ltk))
 
 (in-package :video)
+
+#+nil
+(with-ltk ()
+  (let ((b (make-instance 'button 
+			  :master nil
+			  :text "Press me"
+			  :command (lambda ()
+				     (format t  "Hello")))))
+    (pack b)))
 
 (defmacro parse-capabilities (cap)
   (let* ((caps '(video-capture video-output video-overlay vbi-capture
@@ -277,6 +287,7 @@
       (progn (v4l2::free-query-control g)
 	     (v4l2::free-control s)))))
 
+
 (defvar *good-controls* 
   '((gamma max)
     (saturation min)
@@ -303,9 +314,10 @@
 	  (real
 	   (set-control name :relative val))
 	  (symbol
-	   (set-control name :relative (ecase val
-					 (max 1s0)
-					 (min 0s0)))))))))
+	   (ecase val
+	     (max (set-control name :relative 1s0))
+	     (min (set-control name :relative 0s0))
+	     (default (set-control name)))))))))
 
 #+NIL
 (set-control v4l2::exposure-absolute :relative .2s0) ;; doesn't work
@@ -319,9 +331,9 @@
 	  (dotimes (i 100)
 	    (exchange-queue *fd* #'(lambda (index)
 				     (format t "~a~%"
-					    r  (sb-sys:sap-ref-8 
-					      (first (elt *bufs* index))
-					      0)))))))
+					    (sb-sys:sap-ref-8
+					     (first (elt *bufs* index))
+					     0)))))))
     (stop-capturing)))
 
 #+nil
