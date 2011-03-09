@@ -17,24 +17,44 @@
 	 (combo (make-instance 'combobox :master bar :text "foo" :values '(foo bar baz)))
 	 (fscale (make-instance 'frame :master bar))
 	 (progress (make-instance 'progressbar :master fscale :value 0 :length 150))
-	 (scale (make-instance 'scale :master fscale :from 0 :to 100  :length 150 ))
+	 (scale (make-instance 'scale :master fscale :from 0 :to 1  :length 150
+			       :command (lambda (x) (set-control v4l2::gamma :relative x))))
+	 (scale2 (make-instance 'scale :master fscale :from 0 :to 1  :length 150
+			       :command (lambda (x) (set-control v4l2::brightness :relative x))))
+	 (scale3 (make-instance 'scale :master fscale :from 0 :to 1  :length 150
+			       :command (lambda (x) (set-control v4l2::contrast :relative x))))
+	 (scale4 (make-instance 'scale :master fscale :from 0 :to 1  :length 150
+				:command (lambda (x) (set-control v4l2::saturation :relative x))))
 	 (separator (make-instance 'separator :master fscale))
 	 
 	 (fcheck (make-instance 'frame :master bar))
 	 (ch1 (make-instance 'check-button :master fcheck :text "Salt")))
     (setf (value progress) 10)
     (configure scale :orient :horizontal)
-    (bind *tk* "<Alt-q>" (lambda (event) (declare (ignore event)) (setf *exit-mainloop* t)))
+    (bind *tk* "<Alt-q>" (lambda (event) 
+			   (declare (ignore event))
+			   (setf *exit-mainloop* t)))
     (pack bar :side :bottom)
     (pack b :side :top)
     (pack combo)
     (pack fscale)
     (pack progress)
     (pack scale)
+    (pack scale2)
+
+    (pack scale3)
+
+    (pack scale4)
     (pack separator)
     (pack fcheck)
     (pack ch1)))
 
+#+nil
+(query-controls *fd*)
+#+nil
+(set-control v4l2::gamma :relative 1s0)
+#+nil
+(set-controls)
 #+nil
 (ltk::ltktest)
 
@@ -268,19 +288,20 @@
 			   (= v4l2::flag-disabled 
 			      (logand v4l2::flag-disabled 
 				      (v4l2::query-control-flags c))))
-		 (push (list e
-			     (get-control (symbol-value
-					   (intern (symbol-name e) 'v4l2)))
-			     (list
-			      (v4l2::query-control-minimum c)
-			      (v4l2::query-control-default-value c)
-			      (v4l2::query-control-maximum c))) res))
+		 (push `(,e . ((value . ,(get-control (symbol-value
+						       (intern (symbol-name e) 'v4l2))))
+			       (type . ,(v4l2::query-control-type c))
+			       (step . ,(v4l2::query-control-step c))
+			       (range . 
+				      ,(list
+					(v4l2::query-control-minimum c)
+					(v4l2::query-control-default-value c)
+					(v4l2::query-control-maximum c))))) res))
 	     (sb-posix:syscall-error nil)))
       (v4l2::free-query-control c))
     (reverse res)))
 #+nil
-(format t "~a~%"
- (query-controls *fd*))
+(query-controls *fd*)
 
 (defun set-control (id &key value relative)
   (declare (type (or null (single-float 0s0 1s0)) relative))
@@ -324,7 +345,7 @@
     (exposure-auto 1)
     (exposure-auto-priority 0)))
 #+nil
-(set-good-controls)
+(set-controls)
 
 (defun set-controls (&optional (controls *good-controls*))
   (dolist (e controls)
