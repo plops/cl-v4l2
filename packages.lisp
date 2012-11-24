@@ -2,7 +2,7 @@
   (:use :cl))
 
 (defpackage :video
-  (:use :cl :ltk)
+  (:use :cl)
   (:export
    #:list-capabilities
    #:*fd*

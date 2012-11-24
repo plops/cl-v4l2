@@ -2,6 +2,6 @@
 (in-package #:video-system)
 
 (asdf:defsystem :video
-  :depends-on (:v4l2 :ltk)
+  :depends-on (:v4l2)
   :components ((:file "packages")
 	       (:file "video")))
