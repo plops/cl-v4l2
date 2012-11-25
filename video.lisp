@@ -166,7 +166,7 @@
 
 (defun init ()
   (setf *fd* (sb-posix:open "/dev/video0" sb-posix:o-rdwr))
-  (set-format *fd*)
+  (set-format *fd* :width 352 :height 288)
   (setf *bufs* (init-mmap *fd*))
   #+nil (set-controls))
 
@@ -335,7 +335,8 @@
 					     0)))))))
     (stop-capturing)))
 
-#+nil
+
+#+nil ;; only fast if there is enough light
 (start-main-loop)
 #+nil
 (uninit)
@@ -394,4 +395,4 @@
 	  `(c ,(parse-rect (v4l2::crop-c c))))
      (v4l2::free-cropcap c))))
 #+nil
-(set-crop *fd* '(200 200 300 300))
+(set-crop *fd* '(200 200 210 210))
