@@ -1,5 +1,7 @@
 (defpackage :v4l2
-  (:use :cl))
+  (:use :cl :iolib)
+  (:shadowing-import-from :cl #:read #:open #:close #:time #:write #:truncate
+			  #:ftruncate))
 
 (defpackage :video
   (:use :cl)

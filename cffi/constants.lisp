@@ -1,3 +1,4 @@
+(in-package :v4l2)
 (include "linux/videodev2.h" "linux/ioctl.h")
 
 #+nil
@@ -17,8 +18,8 @@
    collect
      `(constant (,e ,(format nil "~a" e))))
 
-(cenum v4l2_buf_type ((:capture "V4L2_BUF_TYPE_VIDEO_CAPTURE")))
-(cenum v4l2_memory ((:userptr "V4L2_MEMORY_USERPTR")))
+(cenum (v4l2_buf_type :define-constants t) ((:capture "V4L2_BUF_TYPE_VIDEO_CAPTURE")))
+(cenum (v4l2_memory :define-constants t) ((:userptr "V4L2_MEMORY_USERPTR")))
 (CONSTANT (VIDIOC_QBUF "VIDIOC_QBUF"))
 (CONSTANT (VIDIOC_STREAMON "VIDIOC_STREAMON"))
 (CONSTANT (VIDIOC_STREAMOFF "VIDIOC_STREAMOFF"))

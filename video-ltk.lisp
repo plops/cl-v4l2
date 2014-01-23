@@ -1,5 +1,14 @@
 #+nil
-(require :ltk)
+(ql:quickload :ltk)
+#+nil
+(setf asdf:*central-registry*
+        (union (list *default-pathname-defaults*)
+               asdf:*central-registry*))
+
+(require :v4l2)
+(require :video)
+(in-package :ltk)
+
 
 #+nil
 (with-ltk ()
