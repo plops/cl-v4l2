@@ -16,7 +16,7 @@
 (v4l-uninit)
 #+nil
 (defparameter *blub*
- (loop for i below 100 collect
+ (loop for i below 10 collect
       (wait-and-read-frame)))
 
 (declaim (optimize (speed 0) (safety 3) (debug 3)))
@@ -25,7 +25,7 @@
   (let ((r (first *blub*))
 	(w 800)
 	(h 600)
-	(c 2))
+	(c 3))
     (destructuring-bind (ap n length) *buffers*
       (assert (< r n))
       (assert (= length (* w h c)))
@@ -57,6 +57,27 @@
      (dotimes (i w)
        (setf (aref b j i) (aref *q* j (+ 1 (* 2 i)) 1))))
    (write-pgm "/dev/shm/v.pgm" b)))
+
+#+nil
+(progn ;; export rgb component images
+ (let* ((w 800)
+	(h 600)
+	(b (make-array (list h w) :element-type '(unsigned-byte 8))))
+   (progn
+    (dotimes (j h)
+      (dotimes (i w)
+	(setf (aref b j i) (aref *q* j i 0))))
+    (write-pgm "/dev/shm/r.pgm" b))
+   (progn
+     (dotimes (j h)
+       (dotimes (i w)
+	 (setf (aref b j i) (aref *q* j i 1))))
+     (write-pgm "/dev/shm/g.pgm" b))
+   (progn
+     (dotimes (j h)
+       (dotimes (i w)
+	 (setf (aref b j i) (aref *q* j i 2))))
+     (write-pgm "/dev/shm/b.pgm" b))))
 
 
 (defun write-pgm (fn a)

@@ -15,7 +15,7 @@
       (setf *v4l-fd* nil)))
 
   (defvar *buffers* nil)
-  (defun v4l-allocate-buffers (&key (w 800) (h 600) (bytes-per-pixel 2))
+  (defun v4l-allocate-buffers (&key (w 800) (h 600) (bytes-per-pixel 3))
     (if *buffers*
 	(break "buffers are already allocated.")
 	(setf *buffers* (let* ((number-buffers 4)
