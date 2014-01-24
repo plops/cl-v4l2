@@ -36,4 +36,39 @@
 	  (setf (aref a1 i) (cffi:mem-aref ap :uchar i)))
 	a))))
 
+#+nil
+(progn ;; export yuv component images
+ (let* ((w 800)
+	(h 600)
+	(b (make-array (list h w) :element-type '(unsigned-byte 8))))
+   (dotimes (j h)
+     (dotimes (i w)
+       (setf (aref b j i) (aref *q* j i 0))))
+   (write-pgm "/dev/shm/y.pgm" b))
 
+ (let* ((w 400)
+	(h 600)
+	(b (make-array (list h w) :element-type '(unsigned-byte 8))))
+   (dotimes (j h)
+     (dotimes (i w)
+       (setf (aref b j i) (aref *q* j (* 2 i) 1))))
+   (write-pgm "/dev/shm/u.pgm" b)
+   (dotimes (j h)
+     (dotimes (i w)
+       (setf (aref b j i) (aref *q* j (+ 1 (* 2 i)) 1))))
+   (write-pgm "/dev/shm/v.pgm" b)))
+
+
+(defun write-pgm (fn a)
+  (destructuring-bind (h w) (array-dimensions a) 
+    (with-open-file (s fn :direction :output
+                       :if-exists  :supersede
+                       :if-does-not-exist :create)
+      (format s "P5~%~a ~a~%255~%" w h))
+    (with-open-file (s fn :direction :output
+                       :if-exists  :append
+                       :if-does-not-exist :create
+                       :element-type '(unsigned-byte 8))
+      (dotimes (j h)
+        (dotimes (i w)
+         (write-byte (aref a j i) s))))))

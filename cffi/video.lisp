@@ -34,12 +34,12 @@
       (setf (cffi:foreign-slot-value f '(:struct v4l2_format) 'fmt.pix.width) w)
       (setf (cffi:foreign-slot-value f '(:struct v4l2_format) 'fmt.pix.height) h)
       (setf (cffi:foreign-slot-value f '(:struct v4l2_format) 'fmt.pix.pixelformat)
-	    V4L2_PIX_FMT_YUYV)
+	    V4L2_PIX_FMT_RGB24)
       (assert (= 0 (iolib.syscalls:ioctl *v4l-fd* VIDIOC_S_FMT f)))
       (assert (= 0 (iolib.syscalls:ioctl *v4l-fd* VIDIOC_G_FMT f)))
       (list (cffi:foreign-slot-value f '(:struct v4l2_format) 'fmt.pix.width)
 	    (cffi:foreign-slot-value f '(:struct v4l2_format) 'fmt.pix.height)
-	    (= V4L2_PIX_FMT_YUYV
+	    (= V4L2_PIX_FMT_RGB24
 	       (cffi:foreign-slot-value f '(:struct v4l2_format) 'fmt.pix.pixelformat)))))
   (defun v4l-switch-to-user-pointers ()
     (cffi:with-foreign-object (f '(:struct v4l2_requestbuffers))
