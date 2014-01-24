@@ -41,49 +41,51 @@
 
 
 #+nil
-(v4l-init :w 1600 :h 1200)
+(v4l-init :w 800 :h 600)
 #+nil
 (v4l-uninit)
 
 #+nil
 (defparameter *blub*
- (loop for i from -500 upto 500 by 10 do
-      (set-dac (+ 2048 i) 2048)
-      (let ((r (wait-and-read-frame))
-	    (w 1600)
-	    (h 1200)
-	    (c 2))
-	(destructuring-bind (ap n length) *buffers*
-	  (assert (< r n))
-	  (assert (= length (* w h c)))
-	  (let* ((a (make-array (list h w c) :element-type '(unsigned-byte 8)))
-		 (a2 (make-array (list h (* c w)) :element-type '(unsigned-byte 8)
-				 :displaced-to a))
-		 (a1 (make-array length :element-type '(unsigned-byte 8)
-				 :displaced-to a)))
-	    (dotimes (i length)
-	      (setf (aref a1 i) (cffi:mem-aref ap :uchar (+ (* r length) i))))
-	    (write-pgm (format nil "/dev/shm/o~5,'0d.pgm" (+ 2048 i)) a2)
-	    (progn 
-	      (let* ((y (make-array (list h w) :element-type '(unsigned-byte 8))))
-		(dotimes (j h)
-		  (dotimes (i w)
-		    (setf (aref y j i) (aref a j i 0))))
-		(let* ((w (/ w 2))
-		       (v (make-array (list h w) :element-type '(unsigned-byte 8)))
-		       (r (make-array (list h w) :element-type '(unsigned-byte 8))))
+  (loop for j from -100 upto 470 by 10 do
+   (loop for i from -210 upto 310 by 10 do
+	(set-dac (+ 2048 i) (+ 2048 j))
+	(let ((r (wait-and-read-frame))
+	      (w 800)
+	      (h 600)
+	      (c 2))
+	  (destructuring-bind (ap n length) *buffers*
+	    (assert (< r n))
+	    (assert (= length (* w h c)))
+	    (let* ((a (make-array (list h w c) :element-type '(unsigned-byte 8)))
+		   (a2 (make-array (list h (* c w)) :element-type '(unsigned-byte 8)
+				   :displaced-to a))
+		   (a1 (make-array length :element-type '(unsigned-byte 8)
+				   :displaced-to a)))
+	      (dotimes (i length)
+		(setf (aref a1 i) (cffi:mem-aref ap :uchar (+ (* r length) i))))
+	      (write-pgm (format nil "/dev/shm/o~3,'0d-~3,'0d.pgm" (+ 2048 i) (+ 2048 j)) a2)
+	      (progn 
+		(let* ((y (make-array (list h w) :element-type '(unsigned-byte 8))))
 		  (dotimes (j h)
 		    (dotimes (i w)
-		      (setf (aref v j i) (aref a j (+ 1 (* 2 i)) 1))))
+		      (setf (aref y j i) (aref a j i 0))))
+		  (let* ((w (/ w 2))
+			 (v (make-array (list h w) :element-type '(unsigned-byte 8)))
+			 (r (make-array (list h w) :element-type '(unsigned-byte 8))))
+		    (dotimes (j h)
+		      (dotimes (i w)
+			(setf (aref v j i) (aref a j (+ 1 (* 2 i)) 1))))
 		  
-		  (dotimes (j h)
-		    (dotimes (i w)
-		      (setf (aref r j i) (min 255 (max 0 (floor (+ (aref y j (* 2 i)) 
-								   (* 1.5748 (+ -128 (aref v j i))))))))))
-		  (write-pgm (format nil "/dev/shm/r~5,'0d.pgm" (+ 2048 i)) r))))
-	    (format t "~a~%" i)
-	    nil)))))
+		    (dotimes (j h)
+		      (dotimes (i w)
+			(setf (aref r j i) (min 255 (max 0 (floor (+ (aref y j (* 2 i)) 
+								     (* 1.5748 (+ -128 (aref v j i))))))))))
+		    (write-pgm (format nil "/dev/shm/r~3,'0d-~3,'0d.pgm" (+ 2048 i) (+ 2048 j)) r))))
+	      (format t "~a~%" (list i j))
+	      nil))))))
 
+;; acquisition time 22:12 to 22:29 
 
 
 (declaim (optimize (speed 0) (safety 3) (debug 3)))
