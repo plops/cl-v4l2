@@ -45,9 +45,9 @@
     (if *buffers*
 	(break "buffers are already allocated.")
 	(setf *buffers* (let* ((number-buffers 4)
-			     (length (* w h bytes-per-pixel))
-			     (n (* number-buffers length))) 
-			(list (cffi:foreign-alloc :uchar :count n) number-buffers length)))))
+			       (length (* w h bytes-per-pixel))
+			       (n (* number-buffers length))) 
+			  (list (cffi:foreign-alloc :uchar :count n) number-buffers length)))))
   (defun v4l-clear-buffers ()
     (when *buffers*
       (destructuring-bind (ap n length) *buffers*
@@ -56,17 +56,17 @@
       (setf *buffers* nil)))
   (defun v4l-set-format (&key (w 800) (h 600))
     (cffi:with-foreign-object (f '(:struct v4l2_format))
-	     (setf (cffi:foreign-slot-value f '(:struct v4l2_format) 'type) *capture*)
-	     (setf (cffi:foreign-slot-value f '(:struct v4l2_format) 'fmt.pix.width) w)
-	     (setf (cffi:foreign-slot-value f '(:struct v4l2_format) 'fmt.pix.height) h)
-	     (setf (cffi:foreign-slot-value f '(:struct v4l2_format) 'fmt.pix.pixelformat)
-		   V4L2_PIX_FMT_YUYV)
-	     (assert (= 0 (iolib.syscalls:ioctl *v4l-fd* VIDIOC_S_FMT f)))
-	     (assert (= 0 (iolib.syscalls:ioctl *v4l-fd* VIDIOC_G_FMT f)))
-	     (list (cffi:foreign-slot-value f '(:struct v4l2_format) 'fmt.pix.width)
-		   (cffi:foreign-slot-value f '(:struct v4l2_format) 'fmt.pix.height)
-		   (= V4L2_PIX_FMT_YUYV
-		      (cffi:foreign-slot-value f '(:struct v4l2_format) 'fmt.pix.pixelformat)))))
+      (setf (cffi:foreign-slot-value f '(:struct v4l2_format) 'type) *capture*)
+      (setf (cffi:foreign-slot-value f '(:struct v4l2_format) 'fmt.pix.width) w)
+      (setf (cffi:foreign-slot-value f '(:struct v4l2_format) 'fmt.pix.height) h)
+      (setf (cffi:foreign-slot-value f '(:struct v4l2_format) 'fmt.pix.pixelformat)
+	    V4L2_PIX_FMT_YUYV)
+      (assert (= 0 (iolib.syscalls:ioctl *v4l-fd* VIDIOC_S_FMT f)))
+      (assert (= 0 (iolib.syscalls:ioctl *v4l-fd* VIDIOC_G_FMT f)))
+      (list (cffi:foreign-slot-value f '(:struct v4l2_format) 'fmt.pix.width)
+	    (cffi:foreign-slot-value f '(:struct v4l2_format) 'fmt.pix.height)
+	    (= V4L2_PIX_FMT_YUYV
+	       (cffi:foreign-slot-value f '(:struct v4l2_format) 'fmt.pix.pixelformat)))))
   (defun v4l-switch-to-user-pointers ()
     (cffi:with-foreign-object (f '(:struct v4l2_requestbuffers))
       (setf (cffi:foreign-slot-value f '(:struct v4l2_requestbuffers) 'count) 4
