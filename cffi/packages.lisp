@@ -1,24 +1,10 @@
 (defpackage :v4l2
   (:use :cl :iolib)
   (:shadowing-import-from :cl #:read #:open #:close #:time #:write #:truncate
-			  #:ftruncate))
+			  #:ftruncate)
+  (:export #:v4l-init
+	   #:v4l-uninit
+	   #:*buffers*
+	   #:wait-and-read-frame))
 
-(defpackage :video
-  (:use :cl)
-  (:export
-   #:list-capabilities
-   #:*fd*
-   #:supports-streaming-p
-   #:supports-mmap-p
-   #:supports-user-pointer-p
-   #:set-format
-   #:exchange-queue
-   #:init
-   #:uninit
-   #:start-capturing
-   #:stop-capturing
-   #:get-control
-   #:query-controls
-   #:set-control
-   #:set-controls
-   #:start-main-loop))
+

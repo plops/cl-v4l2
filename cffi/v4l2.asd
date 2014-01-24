@@ -7,5 +7,5 @@
     :components
     ((:file "packages")
      (cffi-grovel:grovel-file "constants")
-    #+nil (:file "video")))
+     (:file "video")))
 
